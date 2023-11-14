@@ -276,4 +276,4 @@ def val_curve_params(model, X, y, param_name, param_range, scoring="roc_auc", cv
     plt.xlabel(f"Number of {param_name}")
     plt.ylabel(f"{scoring}")
     plt.legend(loc="Best")
-    plt.show()
+    plt.show(block=True)

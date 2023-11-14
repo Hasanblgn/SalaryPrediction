@@ -1,13 +1,19 @@
+import warnings
+
 import helpers
 import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.neighbors import LocalOutlierFactor
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.model_selection import train_test_split, cross_validate
+import warnings
 pd.set_option("display.max_columns", 20)
 pd.set_option('display.expand_frame_repr', False)
 pd.set_option("display.float_format", lambda x: "%.3f" % x)
-
+warnings.simplefilter(action="ignore", category=Warning)
 
 def load_dataset():
     data = pd.read_csv("hitter_dataset.csv")
@@ -90,4 +96,59 @@ plt.show(block=True)
 
 th_loc = np.sort(df_scores)[5]
 
-df[df_scores < th_loc].shape
+# outlier değerlerini verisetimizden sildik.
+
+df.drop(labels = df[df_scores < th_loc].index, inplace=True)
+
+
+# one hot encoding.
+
+dff = helpers.one_hot_encoder(df, cat_cols)
+
+# Robust Scaling
+
+from sklearn.preprocessing import RobustScaler
+scaler = RobustScaler()
+
+dff = pd.DataFrame(scaler.fit_transform(dff), columns=dff.columns)
+
+
+X_train, X_test, y_train, y_test = train_test_split(X,y,random_state=13, test_size=0.2, shuffle=True)
+
+
+y = dff["Salary"]
+X = dff.drop("Salary", axis=1)
+
+
+from sklearn.neighbors import KNeighborsRegressor
+
+knn_model = KNeighborsRegressor().fit(X_train,y_train)
+
+y_pred = knn_model.predict(X_test)
+
+mean_squared_error(y_test, y_pred)
+###
+
+
+# Train hatası incelensin - model ezberlenmiş
+cart_model = DecisionTreeRegressor(random_state=1).fit(X_train, y_train)
+y_pred_cart_train = cart_model.predict(X_train)
+mean_squared_error(y_train,y_pred_cart_train)
+# 0 MSE
+
+
+# Test hatamıza bakıyoruz
+cart_model = DecisionTreeRegressor(random_state=1).fit(X_train, y_train)
+y_pred_cart_test = cart_model.predict(X_test)
+mean_squared_error(y_test, y_pred_cart_test)
+# 0.27 MSE
+
+
+# Cross Validation Yaparız.
+
+cart_model = DecisionTreeRegressor(random_state=1).fit(X_train, y_train)
+
+cv_result = cross_validate(cart_model, X, y, cv=5, verbose=1, n_jobs=-1, scoring=["neg_mean_squared_error", "neg_mean_absolute_error"])
+
+-cv_result["test_neg_mean_squared_error"].mean()
+-cv_result["test_neg_mean_absolute_error"].mean()
