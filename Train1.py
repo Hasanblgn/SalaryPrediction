@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-from sklearn.model_selection import train_test_split, cross_validate
+from sklearn.model_selection import train_test_split, cross_validate, validation_curve
 from sklearn.model_selection import GridSearchCV
 import warnings
 pd.set_option("display.max_columns", 20)
@@ -139,6 +139,7 @@ mean_squared_error(y_train,y_pred_cart_train)
 
 
 # Test hatamıza bakıyoruz
+
 cart_model = DecisionTreeRegressor(random_state=1).fit(X_train, y_train)
 y_pred_cart_test = cart_model.predict(X_test)
 rmse_main = np.sqrt(mean_squared_error(y_test, y_pred_cart_test))
@@ -189,7 +190,7 @@ cart_final = cart_model.set_params(**model_tuned.best_params_).fit(X_train, y_tr
 y_pred_final = final_model.predict(X_test)
 
 result_final = np.sqrt(mean_squared_error(y_test, y_pred_final))
-# 0.0551 RMSE
+# 0.551 RMSE
 
 
 cart_final_cross = cross_validate(final_model, X_train, y_train, cv=5, scoring=["neg_mean_squared_error", "neg_mean_absolute_error"], verbose=2)
@@ -198,3 +199,32 @@ cart_final_cross = cross_validate(final_model, X_train, y_train, cv=5, scoring=[
 -cart_final_cross["test_neg_mean_absolute_error"].mean()
 
 #RMSE 0.34559
+
+# plot importance
+
+helpers.plot_importance(cart_final, X_train, 5)
+
+
+# Validation Curve
+
+train_score, test_score = validation_curve(cart_final, X_train, y_train,
+                                           param_range=range(1,11),
+                                           param_name="max_depth",
+                                           scoring="neg_mean_squared_error",
+                                           cv=10)
+
+mean_train_score = np.mean(-train_score, axis=1)
+mean_test_score = np.mean(-test_score, axis=1)
+
+plt.plot(range(1,11), mean_train_score, label="train score")
+plt.plot(range(1,11), mean_test_score, label="test_score")
+plt.title("train vs test")
+plt.xlabel("number of val")
+plt.ylabel("RMSE")
+plt.legend(loc="best")
+plt.tight_layout()
+plt.show(block=True)
+
+
+
+helpers.val_curve_params(model=cart_final, X=X_train, y=y_train, param_name="max_depth", param_range=range(1,11), scoring="neg_mean_squared_error")
