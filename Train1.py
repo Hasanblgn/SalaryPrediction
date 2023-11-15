@@ -9,6 +9,7 @@ from sklearn.neighbors import LocalOutlierFactor
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.model_selection import train_test_split, cross_validate
+from sklearn.model_selection import GridSearchCV
 import warnings
 pd.set_option("display.max_columns", 20)
 pd.set_option('display.expand_frame_repr', False)
@@ -113,12 +114,12 @@ scaler = RobustScaler()
 dff = pd.DataFrame(scaler.fit_transform(dff), columns=dff.columns)
 
 
-X_train, X_test, y_train, y_test = train_test_split(X,y,random_state=13, test_size=0.2, shuffle=True)
 
 
 y = dff["Salary"]
 X = dff.drop("Salary", axis=1)
 
+X_train, X_test, y_train, y_test = train_test_split(X,y,random_state=13, test_size=0.2, shuffle=True)
 
 from sklearn.neighbors import KNeighborsRegressor
 
@@ -140,15 +141,60 @@ mean_squared_error(y_train,y_pred_cart_train)
 # Test hatamıza bakıyoruz
 cart_model = DecisionTreeRegressor(random_state=1).fit(X_train, y_train)
 y_pred_cart_test = cart_model.predict(X_test)
-mean_squared_error(y_test, y_pred_cart_test)
-# 0.27 MSE
+rmse_main = np.sqrt(mean_squared_error(y_test, y_pred_cart_test))
+# 0.5206 <RMSE>
 
 
 # Cross Validation Yaparız.
 
 cart_model = DecisionTreeRegressor(random_state=1).fit(X_train, y_train)
 
-cv_result = cross_validate(cart_model, X, y, cv=5, verbose=1, n_jobs=-1, scoring=["neg_mean_squared_error", "neg_mean_absolute_error"])
+cv_result = cross_validate(cart_model, X_train, y_train, cv=5, verbose=1, n_jobs=-1, scoring=["neg_mean_squared_error", "neg_mean_absolute_error"])
 
 -cv_result["test_neg_mean_squared_error"].mean()
+
+# 0.4306 <RMSE>
+
 -cv_result["test_neg_mean_absolute_error"].mean()
+
+cart_model.get_params()
+
+
+cart_params = {"max_depth": range(1, 10),
+               "min_samples_split": range(2, 20)}
+
+model_tuned = GridSearchCV(cart_model, cart_params, scoring="neg_mean_squared_error", cv=5, n_jobs=-1, verbose=2)
+
+model_tuned.fit(X_train, y_train)
+
+model_tuned.best_params_    # best params
+
+model_tuned.best_score_    # en iyi score
+
+model_tuned.best_index_    # best index -- best candidate parameteres that all in training hyperparameters combinations
+
+#rmse
+y_pred_grid = model_tuned.predict(X_test)
+
+np.sqrt(mean_squared_error(y_test, y_pred_grid))
+
+# rmse <0.559>
+
+final_model = DecisionTreeRegressor(**model_tuned.best_params_).fit(X_train, y_train)
+
+# or
+
+cart_final = cart_model.set_params(**model_tuned.best_params_).fit(X_train, y_train)
+
+y_pred_final = final_model.predict(X_test)
+
+result_final = np.sqrt(mean_squared_error(y_test, y_pred_final))
+# 0.0551 RMSE
+
+
+cart_final_cross = cross_validate(final_model, X_train, y_train, cv=5, scoring=["neg_mean_squared_error", "neg_mean_absolute_error"], verbose=2)
+
+-cart_final_cross["test_neg_mean_squared_error"].mean()
+-cart_final_cross["test_neg_mean_absolute_error"].mean()
+
+#RMSE 0.34559
